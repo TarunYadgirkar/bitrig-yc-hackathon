@@ -81,6 +81,18 @@ struct OutputView: View {
                     .cornerRadius(14)
                 }
 
+                // Teach button (placeholder — empty action for now)
+                Button {
+                } label: {
+                    Label("Teach", systemImage: "brain.head.profile")
+                        .font(.headline)
+                        .foregroundColor(.accentColor)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(Color.accentColor.opacity(0.12))
+                        .cornerRadius(14)
+                }
+
                 // Fix button — new
                 Button {
                     viewModel.startFix(originalCode: code)
