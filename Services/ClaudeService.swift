@@ -4,8 +4,8 @@ import Foundation
 // MARK: - Configuration
 
 private enum Config {
-    // ⚠️ Replace with your Claude Max API key before running. Do NOT commit a real key.
-    static let apiKey = "YOUR_CLAUDE_API_KEY"
+    // Key lives in Secrets.swift (gitignored). See Secrets.swift.example.
+    static let apiKey = Secrets.anthropicAPIKey
     static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     // claude-sonnet-4-5 is deprecated — use claude-sonnet-4-6
     static let model = "claude-sonnet-4-6"

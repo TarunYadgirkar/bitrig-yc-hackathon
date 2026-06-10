@@ -1,0 +1,13 @@
+# Secrets — never commit real API keys
+Secrets.swift
+
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.xccheckout
+*.xcscmblueprint
