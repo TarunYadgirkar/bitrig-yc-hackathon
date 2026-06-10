@@ -84,7 +84,7 @@ struct OutputView: View {
                 // Teach button (placeholder — empty action for now)
                 Button {
                 } label: {
-                    Label("Teach", systemImage: "brain.head.profile")
+                    Label("Teach Siri", systemImage: "brain.head.profile")
                         .font(.headline)
                         .foregroundColor(.accentColor)
                         .frame(maxWidth: .infinity)
