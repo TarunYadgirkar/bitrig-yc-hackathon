@@ -24,13 +24,13 @@ struct FixView: View {
                     .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.secondarySystemBackground))
+                            .fill(Color(uiColor: .secondarySystemBackground))
                     )
 
                 if viewModel.issueDescription.isEmpty {
                     Text("Example: When a user says 'Send a message to Alex on Discord', Siri says it can't find a recipient — there's no contact parameter in the intent...")
                         .font(.body)
-                        .foregroundColor(Color(.tertiaryLabel))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 12)
                         .allowsHitTesting(false)

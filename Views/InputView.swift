@@ -23,13 +23,13 @@ struct InputView: View {
                     .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.secondarySystemBackground))
+                            .fill(Color(uiColor: .secondarySystemBackground))
                     )
 
                 if viewModel.appDescription.isEmpty {
                     Text("Describe your iOS app...\n\nExample: A recipe app where users save recipes and set cooking timers")
                         .font(.body)
-                        .foregroundColor(Color(.tertiaryLabel))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 12)
                         .allowsHitTesting(false)
