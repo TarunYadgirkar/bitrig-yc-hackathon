@@ -7,10 +7,9 @@ private enum Config {
     // Key lives in Secrets.swift (gitignored). See Secrets.swift.example.
     static let apiKey = Secrets.anthropicAPIKey
     static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    // claude-sonnet-4-5 is deprecated — use claude-sonnet-4-6
-    static let model = "claude-sonnet-4-6"
+    static let model = "claude-opus-4-8"
     static let maxTokens = 2000
-    static let timeoutSeconds: TimeInterval = 60
+    static let timeoutSeconds: TimeInterval = 120
     static let anthropicVersion = "2023-06-01"
 }
 
@@ -39,23 +38,6 @@ enum ClaudeError: LocalizedError {
     }
 }
 
-// MARK: - Response Models
-
-private struct ClaudeResponse: Decodable {
-    let content: [ContentBlock]
-    let stopReason: String?
-
-    enum CodingKeys: String, CodingKey {
-        case content
-        case stopReason = "stop_reason"
-    }
-
-    struct ContentBlock: Decodable {
-        let type: String
-        let text: String?
-    }
-}
-
 private struct ClaudeErrorResponse: Decodable {
     let error: ClaudeAPIError
 
@@ -75,22 +57,26 @@ struct ClaudeService {
             throw ClaudeError.emptyContent
         }
 
-        let requestBody: [String: Any] = [
+        return try await streamText(requestBody: [
             "model": Config.model,
             "max_tokens": Config.maxTokens,
+            "stream": true,
             "system": systemPrompt,
             "messages": [
-                [
-                    "role": "user",
-                    "content": "Generate App Intents for this iOS app: \(trimmed)"
-                ]
+                ["role": "user", "content": "Generate App Intents for this iOS app: \(trimmed)"]
             ]
-        ]
+        ])
+    }
 
-        var request = URLRequest(
-            url: Config.endpoint,
-            timeoutInterval: Config.timeoutSeconds
-        )
+    // MARK: - Streaming transport
+    //
+    // We stream the response (Server-Sent Events) rather than waiting for the
+    // whole body. App Intents generations take 10–20s; a non-streaming request
+    // sits idle that whole time and iOS tears the socket down with
+    // "The network connection was lost" (URLError -1005). Streaming keeps bytes
+    // flowing continuously, so the connection stays alive — and it feels faster.
+    private static func streamText(requestBody: [String: Any]) async throws -> String {
+        var request = URLRequest(url: Config.endpoint, timeoutInterval: Config.timeoutSeconds)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(Config.apiKey, forHTTPHeaderField: "x-api-key")
@@ -102,11 +88,10 @@ struct ClaudeService {
             throw ClaudeError.decodingFailed("Could not serialize request body.")
         }
 
-        let data: Data
+        let bytes: URLSession.AsyncBytes
         let response: URLResponse
-
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (bytes, response) = try await URLSession.shared.bytes(for: request)
         } catch let urlError as URLError where urlError.code == .timedOut {
             throw ClaudeError.timeout
         }
@@ -115,29 +100,48 @@ struct ClaudeService {
             throw ClaudeError.invalidResponse
         }
 
-        // Handle non-2xx HTTP status codes
+        // Non-2xx: drain the (small, non-streamed) error body and surface it.
         guard (200...299).contains(http.statusCode) else {
-            let errorMessage: String
-            if let errorResponse = try? JSONDecoder().decode(ClaudeErrorResponse.self, from: data) {
-                errorMessage = errorResponse.error.message
+            var raw = ""
+            for try await line in bytes.lines { raw += line }
+            let message: String
+            if let data = raw.data(using: .utf8),
+               let decoded = try? JSONDecoder().decode(ClaudeErrorResponse.self, from: data) {
+                message = decoded.error.message
             } else {
-                errorMessage = HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
+                message = HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
             }
-            throw ClaudeError.httpError(statusCode: http.statusCode, message: errorMessage)
+            throw ClaudeError.httpError(statusCode: http.statusCode, message: message)
         }
 
-        let decoded: ClaudeResponse
-        do {
-            decoded = try JSONDecoder().decode(ClaudeResponse.self, from: data)
-        } catch {
-            throw ClaudeError.decodingFailed(error.localizedDescription)
+        // Parse the SSE stream, accumulating text deltas into the full response.
+        var text = ""
+        for try await line in bytes.lines {
+            guard line.hasPrefix("data:") else { continue }
+            let payload = line.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
+            guard !payload.isEmpty, payload != "[DONE]",
+                  let data = payload.data(using: .utf8),
+                  let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = event["type"] as? String else { continue }
+
+            switch type {
+            case "content_block_delta":
+                if let delta = event["delta"] as? [String: Any],
+                   let chunk = delta["text"] as? String {
+                    text += chunk
+                }
+            case "error":
+                let message = (event["error"] as? [String: Any])?["message"] as? String
+                    ?? "The stream returned an error."
+                throw ClaudeError.httpError(statusCode: http.statusCode, message: message)
+            default:
+                continue
+            }
         }
 
-        guard let text = decoded.content.first(where: { $0.type == "text" })?.text,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ClaudeError.emptyContent
         }
-
         return text
     }
 }
@@ -146,9 +150,10 @@ struct ClaudeService {
 
 extension ClaudeService {
     static func fixAppIntents(originalCode: String, issue: String) async throws -> String {
-        let requestBody: [String: Any] = [
+        return try await streamText(requestBody: [
             "model": Config.model,
             "max_tokens": Config.maxTokens,
+            "stream": true,
             "system": fixPrompt,
             "messages": [
                 [
@@ -162,26 +167,7 @@ extension ClaudeService {
                     """
                 ]
             ]
-        ]
-
-        var request = URLRequest(url: Config.endpoint, timeoutInterval: Config.timeoutSeconds)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(Config.apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue(Config.anthropicVersion, forHTTPHeaderField: "anthropic-version")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw ClaudeError.invalidResponse
-        }
-
-        let decoded = try JSONDecoder().decode(ClaudeResponse.self, from: data)
-        guard let text = decoded.content.first(where: { $0.type == "text" })?.text else {
-            throw ClaudeError.emptyContent
-        }
-        return text
+        ])
     }
 }
 
