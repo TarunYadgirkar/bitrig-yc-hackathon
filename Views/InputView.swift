@@ -3,6 +3,7 @@ import SwiftUI
 
 struct InputView: View {
     @ObservedObject var viewModel: IntentViewModel
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,6 +41,7 @@ struct InputView: View {
                     .padding(8)
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
+                    .focused($isFocused)
             }
             .frame(minHeight: 220)
             .padding(.horizontal, 24)
@@ -76,5 +78,11 @@ struct InputView: View {
             .padding(.bottom, 32)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { isFocused = false }
+            }
+        }
     }
 }
