@@ -3,21 +3,18 @@ import SwiftUI
 
 struct OutputView: View {
     @ObservedObject var viewModel: IntentViewModel
+    var onBack: () -> Void
+
     @State private var didCopy = false
 
-    private var code: String {
-        if case .success(let code) = viewModel.state { return code }
-        return ""
-    }
+    private var code: String { viewModel.state.code ?? "" }
 
     var body: some View {
         VStack(spacing: 0) {
 
             // Header
             HStack {
-                Button {
-                    viewModel.state = .idle
-                } label: {
+                Button(action: onBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .semibold))
                 }
@@ -29,13 +26,7 @@ struct OutputView: View {
 
                 Spacer()
 
-                Button {
-                    let av = UIActivityViewController(activityItems: [code], applicationActivities: nil)
-                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                       let root = windowScene.windows.first?.rootViewController {
-                        root.present(av, animated: true)
-                    }
-                } label: {
+                ShareLink(item: code) {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 17, weight: .semibold))
                 }
@@ -62,6 +53,7 @@ struct OutputView: View {
                 Text(code)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(Color(red: 0.851, green: 0.851, blue: 0.851))
+                    .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
             }
@@ -86,7 +78,6 @@ struct OutputView: View {
                 .frame(height: 52)
                 .background(didCopy ? Color.green : Color.accentColor)
                 .cornerRadius(14)
-                .animation(.easeInOut(duration: 0.25), value: didCopy)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)

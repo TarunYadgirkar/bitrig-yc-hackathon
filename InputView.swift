@@ -38,14 +38,15 @@ struct InputView: View {
                 TextEditor(text: $viewModel.appDescription)
                     .font(.body)
                     .padding(8)
+                    .scrollContentBackground(.hidden)
                     .background(Color.clear)
             }
             .frame(minHeight: 220)
             .padding(.horizontal, 24)
             .padding(.top, 20)
 
-            if case .error(let message) = viewModel.state {
-                Text(message)
+            if let errorMessage = viewModel.state.errorMessage {
+                Text(errorMessage)
                     .font(.caption)
                     .foregroundColor(.red)
                     .padding(.horizontal, 24)
@@ -55,7 +56,7 @@ struct InputView: View {
             Spacer()
 
             Button {
-                Task { await viewModel.generate() }
+                viewModel.generate()
             } label: {
                 Text("Generate App Intents")
                     .font(.headline)
@@ -63,13 +64,14 @@ struct InputView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(
-                        viewModel.appDescription.trimmingCharacters(in: .whitespaces).isEmpty
-                            ? Color.accentColor.opacity(0.4)
-                            : Color.accentColor
+                        viewModel.canGenerate
+                            ? Color.accentColor
+                            : Color.accentColor.opacity(0.4)
                     )
                     .cornerRadius(14)
             }
-            .disabled(viewModel.appDescription.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(!viewModel.canGenerate)
+            .animation(.easeInOut(duration: 0.2), value: viewModel.canGenerate)
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
         }
