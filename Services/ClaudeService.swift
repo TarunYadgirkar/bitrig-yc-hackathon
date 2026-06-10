@@ -142,6 +142,49 @@ struct ClaudeService {
     }
 }
 
+// MARK: - Fix Mode
+
+extension ClaudeService {
+    static func fixAppIntents(originalCode: String, issue: String) async throws -> String {
+        let requestBody: [String: Any] = [
+            "model": Config.model,
+            "max_tokens": Config.maxTokens,
+            "system": fixPrompt,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": """
+                    Existing App Intents implementation:
+                    \(originalCode)
+
+                    What went wrong when Siri tried to use it:
+                    \(issue)
+                    """
+                ]
+            ]
+        ]
+
+        var request = URLRequest(url: Config.endpoint, timeoutInterval: Config.timeoutSeconds)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(Config.apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(Config.anthropicVersion, forHTTPHeaderField: "anthropic-version")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw ClaudeError.invalidResponse
+        }
+
+        let decoded = try JSONDecoder().decode(ClaudeResponse.self, from: data)
+        guard let text = decoded.content.first(where: { $0.type == "text" })?.text else {
+            throw ClaudeError.emptyContent
+        }
+        return text
+    }
+}
+
 // MARK: - Offline Fallback
 // If there's no WiFi at the venue, swap ClaudeService.generateAppIntents() for this:
 // (Uncomment, test one description, hardcode the known-good output as cachedOutput)

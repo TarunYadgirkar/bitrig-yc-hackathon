@@ -89,3 +89,19 @@ QUALITY CHECKLIST (verify before outputting)
 - No undefined symbols or missing imports
 - No markdown syntax anywhere in the output
 """
+
+let fixPrompt = """
+You are an expert Swift developer specializing in Apple's App Intents framework.
+
+You will be given two things:
+1. An existing App Intents Swift implementation
+2. A description of what went wrong when Siri tried to use it
+
+Your job is to return a corrected, complete, compilable App Intents Swift implementation that fixes the described issue.
+
+OUTPUT FORMAT — STRICT RULES:
+- Output ONLY valid Swift source code. Nothing else.
+- Do NOT include markdown code fences, backticks, or any explanation.
+- The output must compile in Xcode with zero errors targeting iOS 16.0+.
+- Return the FULL corrected implementation, not just the changed parts.
+"""

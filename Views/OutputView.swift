@@ -60,24 +60,35 @@ struct OutputView: View {
             .background(Color(red: 0.118, green: 0.118, blue: 0.118))
             .frame(maxHeight: .infinity)
 
-            // Copy button
-            Button {
-                UIPasteboard.general.string = code
-                withAnimation(.easeInOut(duration: 0.2)) { didCopy = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation(.easeInOut(duration: 0.2)) { didCopy = false }
+            VStack(spacing: 10) {
+                // Copy button
+                Button {
+                    UIPasteboard.general.string = code
+                    withAnimation(.easeInOut(duration: 0.2)) { didCopy = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation(.easeInOut(duration: 0.2)) { didCopy = false }
+                    }
+                } label: {
+                    Label(
+                        didCopy ? "Copied!" : "Copy Code",
+                        systemImage: didCopy ? "checkmark" : "doc.on.doc"
+                    )
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(didCopy ? Color.green : Color.accentColor)
+                    .cornerRadius(14)
                 }
-            } label: {
-                Label(
-                    didCopy ? "Copied!" : "Copy Code",
-                    systemImage: didCopy ? "checkmark" : "doc.on.doc"
-                )
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(didCopy ? Color.green : Color.accentColor)
-                .cornerRadius(14)
+
+                // Fix button — new
+                Button {
+                    viewModel.startFix(originalCode: code)
+                } label: {
+                    Label("Siri's not getting it right?", systemImage: "wrench.and.screwdriver")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
